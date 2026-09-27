@@ -31,42 +31,68 @@ exports.create = async (req, res) => {
       destination,
       terms_of_delivery,
       other_references,
+      cgst_rate,
+      sgst_rate,
+      igst_rate
     } = req.body;
 
-    let subtotal = 0; // Serves as the global Taxable Value
+    let subtotal = 0;
     const lines = [];
 
     for (const line of products) {
-      const p = await Product.findById(line.product);
-      if (!p) return res.status(400).json({ success: false, message: "Product record not found" });
+      let price = Number(line.price) || 0;
+      let productId = null;
+      let productName = line.product_name || "Custom Item";
+
+      // If it's a DB product, fetch its real data; skip if manual item
+      if (line.product) {
+        const p = await Product.findById(line.product);
+        if (p) {
+          productId = p._id;
+          productName = p.product_name;
+          if (line.price === undefined || line.price === "") {
+            price = Number(p.price || p["Sale Price (Est.) Barabazar"]) || 0;
+          }
+        }
+      }
 
       const qty = Number(line.quantity) || 1;
-      const price = line.price !== undefined ? Number(line.price) : (Number(p.price || p["Sale Price (Est.) Barabazar"]) || 0);
-      const lineDisc = Number(line.item_discount) || 0;
-
-      const netLineAmount = (price * qty) - lineDisc;
+const lineDiscPercent = Number(line.item_discount) || 0;
+const grossLineAmount = price * qty;
+const discountAmount = grossLineAmount * (lineDiscPercent / 100);
+const netLineAmount = grossLineAmount - discountAmount;
       subtotal += netLineAmount;
 
       lines.push({
-        product: p._id,
+        product: productId,
+        product_name: productId ? undefined : productName,
         quantity: qty,
         price: price,
-        gst: 0, // Cleared individual line item taxation flag
+        gst: 0,
         item_discount: lineDisc,
       });
     }
 
-    // Apply global overall CGST + SGST calculations matching image_5b089c.png
-    const cgst_total = subtotal * 0.025;
-    const sgst_total = subtotal * 0.025;
-    const combinedGst = cgst_total + sgst_total;
-    const grand_total = subtotal + combinedGst;
+    // Dynamic tax calculation from custom edited input box entries
+    const cRate = cgst_rate !== undefined ? Number(cgst_rate) : 2.5;
+    const sRate = sgst_rate !== undefined ? Number(sgst_rate) : 2.5;
+    const iRate = igst_rate !== undefined ? Number(igst_rate) : 0;
+
+    const cgst_total = subtotal * (cRate / 100);
+    const sgst_total = subtotal * (sRate / 100);
+    const igst_total = subtotal * (iRate / 100);
+    const combinedGst = cgst_total + sgst_total + igst_total;
+    const totalBeforeRoundOff = subtotal + combinedGst;
+    const grand_total = Math.round(totalBeforeRoundOff);
 
     const invoice = await Invoice.create({
       customer,
       products: lines,
-      subtotal: subtotal, // Taxable base value
-      gst_total: combinedGst, // Combined total tax value
+      subtotal: subtotal,
+      gst_total: combinedGst,
+      cgst_rate: cRate,
+      sgst_rate: sRate,
+      igst_rate: iRate,
       discount: 0,
       grand_total: grand_total,
       payment_method,
@@ -85,6 +111,62 @@ exports.create = async (req, res) => {
 
 exports.update = async (req, res) => {
   try {
+    const { products, cgst_rate, sgst_rate, igst_rate } = req.body;
+    
+    // Recalculate totals on server side for safety during standard updates
+    if (products) {
+      let subtotal = 0;
+      const lines = [];
+
+      for (const line of products) {
+        let price = Number(line.price) || 0;
+        let productId = null;
+        let productName = line.product_name || "Custom Item";
+
+        if (line.product) {
+          const p = await Product.findById(line.product);
+          if (p) {
+            productId = p._id;
+            productName = p.product_name;
+            if (line.price === undefined || line.price === "") {
+              price = Number(p.price || p["Sale Price (Est.) Barabazar"]) || 0;
+            }
+          }
+        }
+
+        const qty = Number(line.quantity) || 1;
+const lineDiscPercent = Number(line.item_discount) || 0;
+const grossLineAmount = price * qty;
+const discountAmount = grossLineAmount * (lineDiscPercent / 100);
+const netLineAmount = grossLineAmount - discountAmount;
+
+subtotal += netLineAmount;
+
+        lines.push({
+          product: productId,
+          product_name: productId ? undefined : productName,
+          quantity: qty,
+          price: price,
+          gst: 0,
+         item_discount: lineDiscPercent,
+        });
+      }
+
+      const cRate = cgst_rate !== undefined ? Number(cgst_rate) : 2.5;
+      const sRate = sgst_rate !== undefined ? Number(sgst_rate) : 2.5;
+      const iRate = igst_rate !== undefined ? Number(igst_rate) : 0;
+
+      const cgst_total = subtotal * (cRate / 100);
+      const sgst_total = subtotal * (sRate / 100);
+      const igst_total = subtotal * (iRate / 100);
+      const combinedGst = cgst_total + sgst_total + igst_total;
+      
+      req.body.products = lines;
+      req.body.subtotal = subtotal;
+      req.body.gst_total = combinedGst;
+      req.body.grand_total = subtotal + combinedGst;
+    }
+
     const inv = await Invoice.findByIdAndUpdate(req.params.id, req.body, { new: true });
     res.json({ success: true, data: inv });
   } catch (err) {

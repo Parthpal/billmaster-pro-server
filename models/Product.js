@@ -5,7 +5,7 @@ const productSchema = new mongoose.Schema({
   product_name:  { type: String, required: true, trim: true },
   product_image: { type: String, default: "" },
   category:      { type: String, required: true },
-  price:         { type: Number, required: true, min: [0, "Price cannot be negative"] },
+  price:         { type: Number, required: true, min: [0, "Price cannot be negative"],unique:false },
   sale_price_locally: { type: Number, default: 0, min: 0 },
   price_on_product:   { type: Number, default: 0, min: 0 },
   brand_name:    { type: String, default: "", trim: true },
@@ -17,9 +17,9 @@ const productSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Unique price validation (soft — warn only)
-productSchema.statics.findByPrice = function (price) {
-  return this.findOne({ price });
-};
+// productSchema.statics.findByPrice = function (price) {
+//   return this.findOne({ price });
+// };
 
 // Change this section in models/Product.js
 

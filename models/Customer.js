@@ -11,12 +11,28 @@ const customerSchema = new mongoose.Schema({
 
 // Auto-generate customer_id before saving
 //  NEW STABLE METHOD
+// File: Customer.js
+
+// Auto-generate customer_id before saving safely
 customerSchema.pre("save", async function () {
   if (!this.customer_id) {
-    const count = await this.constructor.countDocuments();
-    this.customer_id = `CUST-${String(count + 1).padStart(4, "0")}`;
+    // 1. Find the single latest customer sorted by customer_id descending
+    const lastCustomer = await this.constructor.findOne({}, { customer_id: 1 })
+                                              .sort({ customer_id: -1 });
+
+    let nextNumber = 1;
+
+    if (lastCustomer && lastCustomer.customer_id) {
+      // 2. Extract the number from the string (e.g., "CUST-0004" -> 4)
+      const lastNumber = parseInt(lastCustomer.customer_id.replace("CUST-", ""), 10);
+      if (!isNaN(lastNumber)) {
+        nextNumber = lastNumber + 1;
+      }
+    }
+
+    // 3. Format with leading zeros
+    this.customer_id = `CUST-${String(nextNumber).padStart(4, "0")}`;
   }
-  // No next() callback needed for async/await hooks!
 });
 
 module.exports = mongoose.model("Customer", customerSchema);

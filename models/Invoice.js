@@ -5,7 +5,11 @@ const invoiceProductSchema = new mongoose.Schema(
     product: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Product",
-      required: true,
+      required: false, // Changed to false to allow manual items!
+    },
+    product_name: {
+      type: String, // Stores the manual product name text
+      default: "",
     },
     quantity: {
       type: Number,
@@ -41,6 +45,10 @@ const invoiceSchema = new mongoose.Schema(
     products: [invoiceProductSchema],
     subtotal: { type: Number, required: true },
     gst_total: { type: Number, required: true },
+    // Custom tax rates saved per-invoice
+    cgst_rate: { type: Number, default: 2.5 },
+    sgst_rate: { type: Number, default: 2.5 },
+    igst_rate: { type: Number, default: 0 },
     discount: { type: Number, default: 0 },
     grand_total: { type: Number, required: true },
     payment_method: { type: String, default: "Cash" },
@@ -54,9 +62,6 @@ const invoiceSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// ─────────────────────────────────────────────────────────────────
-// FIXED AUTO-GENERATION INVOICE NUMBER (Removed 'next' argument)
-// ─────────────────────────────────────────────────────────────────
 invoiceSchema.pre("save", async function () {
   try {
     if (!this.invoice_id) {
@@ -81,7 +86,7 @@ invoiceSchema.pre("save", async function () {
       this.invoice_id = this.invoice_number;
     }
   } catch (err) {
-    throw err; // Proper async promise handling rejection
+    throw err;
   }
 });
 

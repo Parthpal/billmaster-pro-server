@@ -11,39 +11,48 @@ const app = express();
 // =======================
 // CORS CONFIGURATION
 // =======================
-const allowedOrigins = [
-  "http://localhost:3000",
-  "https://billmasterpro-a4bf7.web.app",
-  "https://billmasterpro-a4bf7.firebaseapp.com",
-];
+// const allowedOrigins = [
+//   "http://localhost:3000",
+//   "https://billmasterpro-a4bf7.web.app",
+//   "https://billmasterpro-a4bf7.firebaseapp.com",
+// ];
 
-app.use(
-  cors({
-    origin: function (origin, callback) {
-      // Allow requests without origin (Postman, mobile apps, etc.)
-      if (!origin) return callback(null, true);
+// app.use(
+//   cors({
+//     origin: function (origin, callback) {
+//       // Allow requests without origin (Postman, mobile apps, etc.)
+//       if (!origin) return callback(null, true);
 
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
+//       if (allowedOrigins.includes(origin)) {
+//         return callback(null, true);
+//       }
 
-      return callback(new Error(`CORS blocked for origin: ${origin}`));
-    },
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    allowedHeaders: [
-      "Content-Type",
-      "Authorization",
-      "Origin",
-      "Accept",
-      "X-Requested-With",
-    ],
-  })
-);
+//       return callback(new Error(`CORS blocked for origin: ${origin}`));
+//     },
+//     credentials: true,
+//     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+//     allowedHeaders: [
+//       "Content-Type",
+//       "Authorization",
+//       "Origin",
+//       "Accept",
+//       "X-Requested-With",
+//     ],
+//   })
+// );
+
+// for production
+// const corsConfig = {
+//   origin: '*',
+//   credentials: true,
+//   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
+//   }
+//   app.use(cors(corsConfig))
 
 // =======================
 // MIDDLEWARE
 // =======================
+//app.use(cors({ origin: process.env.CLIENT_URL || "http://localhost:3000", credentials: true }));
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
